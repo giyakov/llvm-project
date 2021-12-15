@@ -67,7 +67,7 @@ static MCAsmInfo *createSIMMCAsmInfo(const MCRegisterInfo &MRI,
                                        const MCTargetOptions &Options) {
   MCAsmInfo *MAI = new SIMMCAsmInfo(TT);
 
-  unsigned WP = MRI.getDwarfRegNum(SIM::X2, true);
+  unsigned WP = MRI.getDwarfRegNum(SIM::R2, true);
   MCCFIInstruction Inst = MCCFIInstruction::cfiDefCfa(nullptr, WP, 0);
   MAI->addInitialFrameState(Inst);
 

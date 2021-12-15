@@ -44,7 +44,7 @@ SIMTargetLowering::SIMTargetLowering(const TargetMachine &TM,
   // added, this allows us to compute derived properties we expose.
   computeRegisterProperties(Subtarget.getRegisterInfo());
 
-  setStackPointerRegisterToSaveRestore(SIM::X2);
+  setStackPointerRegisterToSaveRestore(SIM::R2);
 
   // Set scheduling preference. There are a few options:
   //    - None: No preference
@@ -95,7 +95,7 @@ void SIMTargetLowering::ReplaceNodeResults(SDNode *N,
 
 // The BeyondRISC calling convention parameter registers.
 static const MCPhysReg GPRArgRegs[] = {
-  SIM::X0, SIM::X1, SIM::X2, SIM::X3
+  SIM::R0, SIM::R1, SIM::R2, SIM::R3
 };
 
 /// LowerFormalArguments - transform physical registers into virtual registers
@@ -130,7 +130,7 @@ SDValue SIMTargetLowering::LowerFormalArguments(
   // We need to know this before we allocate the first byval or variadic
   // argument, as they will be allocated a stack slot below the CFA (Canonical
   // Frame Address, the stack pointer at entry to the function).
-  unsigned ArgRegBegin = SIM::X4;
+  unsigned ArgRegBegin = SIM::R4;
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
     if (CCInfo.getInRegsParamsProcessed() >= CCInfo.getInRegsParamsCount())
       break;
@@ -319,14 +319,14 @@ void SIMTargetLowering::HandleByVal(CCState *State, unsigned &Size,
     return;
 
   unsigned AlignInRegs = align.value() / 4;
-  unsigned Waste = (SIM::X4 - Reg) % AlignInRegs;
+  unsigned Waste = (SIM::R4 - Reg) % AlignInRegs;
   for (unsigned i = 0; i < Waste; ++i)
     Reg = State->AllocateReg(GPRArgRegs);
 
   if (!Reg)
     return;
 
-  unsigned Excess = 4 * (SIM::X4 - Reg);
+  unsigned Excess = 4 * (SIM::R4 - Reg);
 
   // Special case when NSAA != SP and parameter size greater than size of
   // all remained GPR regs. In that case we can't split parameter, we must
@@ -346,7 +346,7 @@ void SIMTargetLowering::HandleByVal(CCState *State, unsigned &Size,
   // else parameter would be splitted between registers and stack,
   // end register would be r4 in this case.
   unsigned ByValRegBegin = Reg;
-  unsigned ByValRegEnd = std::min<unsigned>(Reg + Size / 4, SIM::X4);
+  unsigned ByValRegEnd = std::min<unsigned>(Reg + Size / 4, SIM::R4);
   State->addInRegsParamInfo(ByValRegBegin, ByValRegEnd);
   // Note, first register is allocated in the beginning of function already,
   // allocate remained amount of registers we need.

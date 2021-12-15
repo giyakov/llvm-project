@@ -23,7 +23,7 @@
 using namespace llvm;
 
 SIMRegisterInfo::SIMRegisterInfo(const SIMSubtarget &ST)
-  : SIMGenRegisterInfo(SIM::X1, /*DwarfFlavour*/0, /*EHFlavor*/0,
+  : SIMGenRegisterInfo(SIM::R1, /*DwarfFlavour*/0, /*EHFlavor*/0,
                          /*PC*/0), Subtarget(ST) {}
 
 const MCPhysReg *
@@ -44,10 +44,10 @@ SIMRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
 BitVector SIMRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
 
-  markSuperRegs(Reserved, SIM::X0); // zero
-  markSuperRegs(Reserved, SIM::X2); // sp
-  markSuperRegs(Reserved, SIM::X3); // gp
-  markSuperRegs(Reserved, SIM::X4); // tp
+  markSuperRegs(Reserved, SIM::R0); // zero
+  markSuperRegs(Reserved, SIM::R2); // sp
+  markSuperRegs(Reserved, SIM::R3); // gp
+  markSuperRegs(Reserved, SIM::R4); // tp
 
   return Reserved;
 }

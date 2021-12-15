@@ -33,12 +33,12 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_CallSeqEnd,
 
 include "SIMInstrFormats.td"
 
-let Defs = [X2], Uses = [X2] in {
+let Defs = [R2], Uses = [R2] in {
 def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                               [(callseq_start timm:$amt1, timm:$amt2)]>;
 def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                               [(callseq_end timm:$amt1, timm:$amt2)]>;
-} // end Defs = [X2], Uses = [X2]
+}
 
 /* Arithmetic and logic */
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
@@ -65,6 +65,6 @@ def JALR : RWInstI<0b000, OPC_JALR, (outs GPR:$rd),
 
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
 def PseudoRET : Pseudo<(outs), (ins), [(sim_ret)]>,
-                PseudoInstExpansion<(JALR X0, X1, 0)>;
+                PseudoInstExpansion<(JALR R0, R1, 0)>;
 
-def : InstAlias<"ret",                   (JALR      X0,      X1, 0), 4>;
+def : InstAlias<"ret", (JALR R0, R1, 0), 4>;
