@@ -31,25 +31,10 @@ using namespace llvm;
 #include "SIMGenSubtargetInfo.inc"
 
 SIMSubtarget::SIMSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
-                               const TargetMachine &TM)
-    : SIMGenSubtargetInfo(TT, CPU, "generic", FS),
+                           const TargetMachine &TM)
+    : SIMGenSubtargetInfo(TT, CPU, CPU, FS),
       TSInfo(),
-      InstrInfo(initializeSubtargetDependencies(TT, CPU, FS, TM)),
+      InstrInfo(*this),
       FrameLowering(*this),
       TLInfo(TM, *this),
       RegInfo(*this) { }
-
-
-SIMSubtarget &
-SIMSubtarget::initializeSubtargetDependencies(const Triple &TT, StringRef CPU,
-                                                StringRef FS,
-                                                const TargetMachine &TM) {
-  StringRef CPUName = CPU;
-  if (CPUName.empty())
-    CPUName = "generic";
-
-  // Parse features string.
-  ParseSubtargetFeatures(CPUName, "generic", FS);
-
-  return *this;
-}

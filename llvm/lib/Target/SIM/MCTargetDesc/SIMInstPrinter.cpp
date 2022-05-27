@@ -13,52 +13,62 @@
 
 #include "SIMInstPrinter.h"
 
+#include "MCTargetDesc/SIMMCAsmInfo.h"
 #include "SIMInstrInfo.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+
 using namespace llvm;
 
-#define DEBUG_TYPE "sim-isel"
+#define DEBUG_TYPE "asm-printer"
 
-#define PRINT_ALIAS_INSTR
 #include "SIMGenAsmWriter.inc"
 
-SIMInstPrinter::SIMInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
-                                   const MCRegisterInfo &MRI)
-    : MCInstPrinter(MAI, MII, MRI) {}
-
-void SIMInstPrinter::printRegName(raw_ostream &OS, unsigned RegNo) const {
-  OS << StringRef(getRegisterName(RegNo)).lower();
+void SIMInstPrinter::printRegName(raw_ostream &O, unsigned RegNo) const {
+  O << getRegisterName(RegNo);
 }
 
 void SIMInstPrinter::printInst(const MCInst *MI, uint64_t Address,
-                                 StringRef Annot, const MCSubtargetInfo &STI,
-                                 raw_ostream &O) {
-  // Try to print any aliases first.
-  if (!printAliasInstr(MI, Address, O)) {
-    printInstruction(MI, Address, O);
-  }
+                               StringRef Annot, const MCSubtargetInfo &STI,
+                               raw_ostream &O) {
+  printInstruction(MI, Address, O);
   printAnnotation(O, Annot);
 }
 
-void SIMInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
-                                    raw_ostream &O) {
-  const MCOperand &Op = MI->getOperand(OpNo);
-  if (Op.isReg()) {
-    printRegName(O, Op.getReg());
+void SIMInstPrinter::printOperand(const MCInst *MI, int OpNo, raw_ostream &O) {
+  const MCOperand &MO = MI->getOperand(OpNo);
+
+  if (MO.isReg()) {
+    printRegName(O, MO.getReg());
     return;
   }
 
-  if (Op.isImm()) {
-    O << Op.getImm();
+  if (MO.isImm()) {
+    O << MO.getImm();
     return;
   }
 
-  assert(Op.isExpr() && "unknown operand kind in printOperand");
-  Op.getExpr()->print(O, &MAI, true);
+  assert(MO.isExpr() && "Unknown operand kind in printOperand");
+  MO.getExpr()->print(O, &MAI);
+}
+
+void SIMInstPrinter::printBranchOperand(const MCInst *MI, uint64_t Address,
+                                        unsigned OpNo, raw_ostream &O) {
+  const MCOperand &MO = MI->getOperand(OpNo);
+  if (!MO.isImm())
+    return printOperand(MI, OpNo, O);
+
+  if (PrintBranchImmAsAddress) {
+    uint32_t Target = Address + MO.getImm();
+    O << formatHex(static_cast<uint64_t>(Target));
+  } else {
+    O << MO.getImm();
+  }
 }
