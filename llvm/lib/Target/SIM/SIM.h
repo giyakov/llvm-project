@@ -17,11 +17,37 @@
 
 #include "MCTargetDesc/SIMMCTargetDesc.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Support/DataTypes.h"
 
 namespace llvm {
-  class FunctionPass;
+class FunctionPass;
+class SIMTargetMachine;
+class FunctionPass;
+class USimSubtarget;
+class AsmPrinter;
+class InstructionSelector;
+class MCInst;
+class MCOperand;
+class MachineInstr;
+class MachineOperand;
+class PassRegistry;
+  
+bool lowerSIMMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
+                                  AsmPrinter &AP);
+bool LowerSIMMachineOperandToMCOperand(const MachineOperand &MO,
+                                       MCOperand &MCOp, const AsmPrinter &AP);
 
-  // Declare functions to create passes here!
+FunctionPass *createSIMISelDag(SIMTargetMachine &TM, CodeGenOpt::Level OptLevel);
+
+namespace SIM {
+enum {
+  GP = SIM::R0,
+  RA = SIM::R1,
+  SP = SIM::R2,
+  FP = SIM::R3,
+  BP = SIM::R4,
+};
+} // namespace SIM
 
 } // end namespace llvm;
 

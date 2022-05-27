@@ -25,9 +25,10 @@ namespace SIMISD {
 enum NodeType {
   // Start the numbering from where ISD NodeType finishes.
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
-
-  // Return
-  Ret,
+  RET,
+  CALL,
+  BR_CC,
+  SELECT_CC,
 };
 }
 
@@ -36,7 +37,7 @@ class SIMSubtarget;
 class SIMTargetLowering : public TargetLowering  {
 public:
   explicit SIMTargetLowering(const TargetMachine &TM,
-                              const SIMSubtarget &STI);
+                             const SIMSubtarget &STI);
 
   const char *getTargetNodeName(unsigned Opcode) const override;
 
