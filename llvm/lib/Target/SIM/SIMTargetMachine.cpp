@@ -29,26 +29,23 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeSIMTarget() {
 }
 
 static std::string computeDataLayout() {
-  std::string Ret = "";
-
-  // Little endian
-  Ret += "e";
-
-  // ELF name mangling
-  Ret += "-m:e";
-
-  // 32-bit pointers, 32-bit aligned
-  Ret += "-p:32:32";
-
-  // 64-bit integers, 64 bit aligned
-  Ret += "-i64:64";
-
-  // 32-bit native integer width i.e register are 32-bit
-  Ret += "-n32";
-
-  // 128-bit natural stack alignment
-  Ret += "-S128";
-
+  std::string Ret = "e"
+                    // ELF name mangling
+                    "-m:e"
+                    // Type:SizeInBits:StoreSizeInBits:AllocSizeInBits
+                    "-p:32:32" // pointer
+                    "-i1:8:32" // int
+                    "-i8:8:32" // int
+                    "-i16:16:32" // int
+                    "-i32:32:32" // int
+                    "-i64:32" // int
+                    "-f32:32:32" // float
+                    "-f64:32" // float
+                    "-a:0:32" // aggregate
+                    // 32-bit native integer width i.e register are 32-bit
+                    "-n32"
+                    // 32-bit natural stack alignment
+                    "-S32";
   return Ret;
 }
 

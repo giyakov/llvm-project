@@ -41,6 +41,7 @@
 #include "clang/Basic/Diagnostic.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace clang;
 

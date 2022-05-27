@@ -1426,7 +1426,6 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::tce:
   case Triple::tcele:
   case Triple::xcore:
-  case Triple::sim:
     T.setArch(UnknownArch);
     break;
 
@@ -1473,6 +1472,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::thumbeb:         T.setArch(Triple::aarch64_be); break;
   case Triple::wasm32:          T.setArch(Triple::wasm64);     break;
   case Triple::x86:             T.setArch(Triple::x86_64);     break;
+  case Triple::sim:             T.setArch(Triple::sim);        break;
   }
   return T;
 }
