@@ -26,6 +26,7 @@ add_llvm_target(SIMCodeGen
   SIMTargetObjectFile.cpp
   SIMISelDAGToDAG.cpp
   SIMTargetMachine.cpp
+  SIMMCInstLower.cpp
 
   LINK_COMPONENTS
   Analysis
