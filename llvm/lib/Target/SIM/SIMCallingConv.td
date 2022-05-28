@@ -1,40 +1,34 @@
-//=== SIMCallingConv.td - Calling Conventions for SIM --*- tablegen -*-===//
-//
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
-//
 //===----------------------------------------------------------------------===//
 // This describes the calling conventions for SIM architecture.
 //===----------------------------------------------------------------------===//
 
-def SIM_CCallingConv : CallingConv<[
-  // Handles byval parameters. Tell LLVM what the size and alignment
-  // requirements of each stack slot are
-  CCIfByVal<CCPassByVal<4, 4>>,
+//===----------------------------------------------------------------------===//
+// SIM Return Value Calling Convention
+//===----------------------------------------------------------------------===//
+def RetCC_SIM : CallingConv<[
+  // i32 return values
+  CCIfType<[i32, i64], CCAssignToReg<[R9, R10, R11, R12]>>,
 
-  // Promote i8/i16 to i32
-  CCIfType<[i1, i8, i16], CCPromoteToType<i32>>,
-
-  // The first 4 arguments are passed in X0, X1, X2, X3
-  CCIfType<[i32], CCAssignToReg<[R0, R1, R2, R3]>>,
-
-  // Integer values get stored in stack slots that are 4 bytes in size and
-  // 4-byte aligned
+  // Integer values get stored in stack slots that are 4 bytes in
+  // size and 4-byte aligned.
+  CCIfType<[i64], CCAssignToStack<8, 4>>,
   CCIfType<[i32], CCAssignToStack<4, 4>>
 ]>;
 
-// BeyondRISC C Return Convention
-def SIM_CRetConv : CallingConv<[
-  CCIfType<[i1, i8, i16], CCPromoteToType<i32>>,
+//===----------------------------------------------------------------------===//
+// SIM Argument Calling Conventions
+//===----------------------------------------------------------------------===//
+def CC_SIM : CallingConv<[
+  // Promote i8/i16 arguments to i32.
+  CCIfType<[i8, i16], CCPromoteToType<i32>>,
 
-  // i32 are returned in registers X0, X1
-  CCIfType<[i32], CCAssignToReg<[R0, R1, R2, R3]>>,
+  // The first 4 integer arguments are passed in integer registers.
+  CCIfType<[i32, i64], CCAssignToReg<[R9, R10, R11, R12]>>,
 
-  // Integer values get stored in stack slots that are 4 bytes in size and
-  // 4-byte aligned
+  // Integer values get stored in stack slots that are 4 bytes in
+  // size and 4-byte aligned.
+  CCIfType<[i64], CCAssignToStack<8, 4>>,
   CCIfType<[i32], CCAssignToStack<4, 4>>
 ]>;
 
-def SIM_CalleeSavedRegs : CalleeSavedRegs<(add R8, R9)>;
+def CSR_SIM : CalleeSavedRegs<(add R0, R1, R3, R5, R6, R7, R8)>;

@@ -12,76 +12,90 @@
 //===----------------------------------------------------------------------===//
 
 #include "SIMRegisterInfo.h"
+#include "SIM.h"
+#include "SIMInstrInfo.h"
 #include "SIMSubtarget.h"
+#include "llvm/ADT/BitVector.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/RegisterScavenging.h"
+#include "llvm/CodeGen/TargetFrameLowering.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
+
+using namespace llvm;
+
+#define DEBUG_TYPE "SIM-reg-info"
 
 #define GET_REGINFO_TARGET_DESC
 #include "SIMGenRegisterInfo.inc"
 
-#define DEBUG_TYPE "sim-reginfo"
-
-using namespace llvm;
-
-SIMRegisterInfo::SIMRegisterInfo(const SIMSubtarget &ST)
-  : SIMGenRegisterInfo(SIM::R1, /*DwarfFlavour*/0, /*EHFlavor*/0,
-                         /*PC*/0), Subtarget(ST) {}
+SIMRegisterInfo::SIMRegisterInfo() : SIMGenRegisterInfo(SIM::RA) {}
 
 const MCPhysReg *
 SIMRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
-  return SIM_CalleeSavedRegs_SaveList;
+  return CSR_SIM_SaveList;
 }
 
-const TargetRegisterClass *SIMRegisterInfo::intRegClass(unsigned Size) const {
-  return &SIM::GPRRegClass;
+// TODO: check cconv
+BitVector SIMRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+  SIMFrameLowering const *TFI = getFrameLowering(MF);
+
+  BitVector Reserved(getNumRegs());
+  Reserved.set(SIM::GP);
+  Reserved.set(SIM::SP);
+
+  if (TFI->hasFP(MF)) {
+    Reserved.set(SIM::FP);
+  }
+  if (TFI->hasBP(MF)) {
+    Reserved.set(SIM::BP);
+  }
+  return Reserved;
+}
+
+bool SIMRegisterInfo::requiresRegisterScavenging(
+    const MachineFunction &MF) const {
+  return false;
+}
+
+void SIMRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+                                           int SPAdj, unsigned FIOperandNum,
+                                           RegScavenger *RS) const {
+  assert(SPAdj == 0 && "Unexpected non-zero SPAdj value");
+
+  MachineInstr &MI = *II;
+  MachineFunction &MF = *MI.getParent()->getParent();
+  DebugLoc DL = MI.getDebugLoc();
+
+  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
+  Register FrameReg;
+  int Offset = getFrameLowering(MF)
+                   ->getFrameIndexReference(MF, FrameIndex, FrameReg)
+                   .getFixed();
+  Offset += MI.getOperand(FIOperandNum + 1).getImm();
+
+  if (!isInt<16>(Offset)) {
+    llvm_unreachable("");
+  }
+
+  MI.getOperand(FIOperandNum).ChangeToRegister(FrameReg, false, false, false);
+  MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+}
+
+Register SIMRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
+  const TargetFrameLowering *TFI = getFrameLowering(MF);
+  return TFI->hasFP(MF) ? SIM::FP : SIM::SP;
 }
 
 const uint32_t *
 SIMRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
-                                        CallingConv::ID) const {
-  return SIM_CalleeSavedRegs_RegMask;
+                                       CallingConv::ID CC) const {
+  return CSR_SIM_RegMask;
 }
-
-BitVector SIMRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
-  BitVector Reserved(getNumRegs());
-
-  markSuperRegs(Reserved, SIM::R0); // zero
-  markSuperRegs(Reserved, SIM::R2); // sp
-  markSuperRegs(Reserved, SIM::R3); // gp
-  markSuperRegs(Reserved, SIM::R4); // tp
-
-  return Reserved;
-}
-
-void SIMRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-                                           int SPAdj,
-                                           unsigned FIOperandNum,
-                                           RegScavenger *RS) const {
-  llvm_unreachable("Unsupported eliminateFrameIndex");
-}
-
-bool
-SIMRegisterInfo::requiresRegisterScavenging(const MachineFunction &MF) const {
-  return true;
-}
-
-bool
-SIMRegisterInfo::requiresFrameIndexScavenging(
-                                            const MachineFunction &MF) const {
-  return true;
-}
-
-bool
-SIMRegisterInfo::requiresFrameIndexReplacementScavenging(
-                                            const MachineFunction &MF) const {
-  return true;
-}
-
-bool
-SIMRegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const {
-  return true;
-}
-
-Register SIMRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  llvm_unreachable("Unsupported getFrameRegister");
-}
-

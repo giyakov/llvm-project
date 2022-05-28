@@ -46,6 +46,8 @@ public:
                           SmallVectorImpl<SDValue> &Results,
                           SelectionDAG &DAG) const override;
 
+  const SIMSubtarget& getSubtarget() const { return Subtarget; }
+
 protected:
   // Subtarget Info
   const SIMSubtarget &Subtarget;
