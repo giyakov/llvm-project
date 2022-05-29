@@ -34,29 +34,22 @@ class SIMFunctionInfo : public MachineFunctionInfo {
   unsigned CalleeSavedStackSize = 0;
 
 public:
-  SIMFunctionInfo() {}
-  explicit SIMFunctionInfo(MachineFunction &MF) {}
-  ~SIMFunctionInfo() {}
+  SIMFunctionInfo();
+  explicit SIMFunctionInfo(MachineFunction &MF);
+  ~SIMFunctionInfo() override;
 
-  void setVarArgsFrameIndex(int Off) { VarArgsFrameIndex = Off; }
-  int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
+  void setVarArgsFrameIndex(int Off);
+  int getVarArgsFrameIndex() const;
 
-  void setVarArgsSaveSize(int Size) { VarArgsSaveSize = Size; }
-  int getVarArgsSaveSize() const { return VarArgsSaveSize; }
+  void setVarArgsSaveSize(int Size);
+  int getVarArgsSaveSize() const;
 
-  unsigned getCalleeSavedStackSize() const { return CalleeSavedStackSize; }
-  void setCalleeSavedStackSize(unsigned Size) { CalleeSavedStackSize = Size; }
+  unsigned getCalleeSavedStackSize() const;
+  void setCalleeSavedStackSize(unsigned Size);
 
-  void setReturnStackOffset(unsigned Off) {
-    assert(!ReturnStackOffsetSet && "Return stack offset set twice");
-    ReturnStackOffset = Off;
-    ReturnStackOffsetSet = true;
-  }
+  void setReturnStackOffset(unsigned Off);
 
-  unsigned getReturnStackOffset() const {
-    assert(ReturnStackOffsetSet && "Return stack offset not set");
-    return ReturnStackOffset;
-  }
+  unsigned getReturnStackOffset() const;
 };
 
 } // end of namespace llvm

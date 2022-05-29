@@ -37,4 +37,4 @@ SIMSubtarget::SIMSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
       InstrInfo(*this),
       FrameLowering(*this),
       TLInfo(TM, *this),
-      RegInfo(*this) { }
+      RegInfo() { }

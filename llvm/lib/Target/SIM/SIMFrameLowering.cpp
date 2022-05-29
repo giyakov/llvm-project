@@ -12,46 +12,304 @@
 //===----------------------------------------------------------------------===//
 
 #include "SIMFrameLowering.h"
+#include "SIMMachineFunction.h"
 #include "SIMSubtarget.h"
-#include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
+#include <algorithm>
+
+#define DEBUG_TYPE "sim-frame-lowering"
 
 using namespace llvm;
 
-// hasFP - Return true if the specified function should have a dedicated frame
-// pointer register.  This is true if the function has variable sized allocas,
-// if it needs dynamic stack realignment, if frame pointer elimination is
-// disabled, or if the frame address is taken.
-bool SIMFrameLowering::hasFP(const MachineFunction &MF) const {
-  return false;
+void SIMFrameLowering::determineCalleeSaves(MachineFunction &MF,
+                                            BitVector &SavedRegs,
+                                            RegScavenger *RS) const {
+  TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
+  if (hasFP(MF)) {
+    SavedRegs.set(SIM::RA);
+    SavedRegs.set(SIM::FP);
+  }
+  if (hasBP(MF))
+    SavedRegs.set(SIM::BP);
 }
 
-MachineBasicBlock::iterator SIMFrameLowering::eliminateCallFramePseudoInstr(
-                                        MachineFunction &MF,
-                                        MachineBasicBlock &MBB,
-                                        MachineBasicBlock::iterator I) const {
-  return MBB.erase(I);
+void SIMFrameLowering::adjustReg(MachineBasicBlock &MBB,
+                                 MachineBasicBlock::iterator MBBI,
+                                 const DebugLoc &DL, Register DestReg,
+                                 Register SrcReg, int64_t Val,
+                                 MachineInstr::MIFlag Flag) const {
+  const SIMInstrInfo *TII = STI.getInstrInfo();
+
+  if (DestReg == SrcReg && Val == 0)
+    return;
+
+  if (!isInt<16>(Val)) {
+    llvm_unreachable("");
+  }
+
+  BuildMI(MBB, MBBI, DL, TII->get(SIM::ADDI), DestReg)
+      .addReg(SrcReg)
+      .addImm(Val)
+      .setMIFlag(Flag);
+}
+
+void SIMFrameLowering::adjustStackToMatchRecords(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+    bool Allocate) const {
+  llvm_unreachable("");
 }
 
 void SIMFrameLowering::emitPrologue(MachineFunction &MF,
-                                     MachineBasicBlock &MBB) const {
+                                    MachineBasicBlock &MBB) const {
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  auto *FI = MF.getInfo<SIMFunctionInfo>();
+  MachineBasicBlock::iterator MBBI = MBB.begin();
+
+  Register FPReg = SIM::FP;
+  Register SPReg = SIM::SP;
+
+  // Debug location must be unknown since the first debug location is used
+  // to determine the end of the prologue.
+  DebugLoc DL;
+
+  uint64_t StackSize = alignTo(MFI.getStackSize(), getStackAlign());
+  MFI.setStackSize(StackSize);
+
+  if (!isInt<16>(StackSize)) {
+    llvm_unreachable("Stack offs won't fit in SIM::LDi");
+  }
+
+  // Early exit if there is no need to allocate on the stack
+  if (StackSize == 0 && !MFI.adjustsStack())
+    return;
+
+  // Allocate space on the stack if necessary.
+  adjustReg(MBB, MBBI, DL, SPReg, SPReg, -StackSize, MachineInstr::FrameSetup);
+
+  const auto &CSI = MFI.getCalleeSavedInfo();
+
+  // The frame pointer is callee-saved, and code has been generated for us to
+  // save it to the stack. We need to skip over the storing of callee-saved
+  // registers as the frame pointer must be modified after it has been saved
+  // to the stack, not before.
+  // FIXME: assumes exactly one instruction is used to save each callee-saved
+  // register.
+  std::advance(MBBI, CSI.size());
+
+  if (!hasFP(MF)) {
+    return;
+  }
+
+  // Generate new FP.
+  adjustReg(MBB, MBBI, DL, FPReg, SPReg, StackSize - FI->getVarArgsSaveSize(),
+            MachineInstr::FrameSetup);
 }
 
 void SIMFrameLowering::emitEpilogue(MachineFunction &MF,
-                                     MachineBasicBlock &MBB) const {
+                                    MachineBasicBlock &MBB) const {
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  Register SPReg = SIM::SP;
+
+  // Get the insert location for the epilogue. If there were no terminators in
+  // the block, get the last instruction.
+  MachineBasicBlock::iterator MBBI = MBB.end();
+  DebugLoc DL;
+  if (!MBB.empty()) {
+    MBBI = MBB.getFirstTerminator();
+    if (MBBI == MBB.end())
+      MBBI = MBB.getLastNonDebugInstr();
+    DL = MBBI->getDebugLoc();
+
+    // If this is not a terminator, the actual insert location should be after
+    // the last instruction.
+    if (!MBBI->isTerminator())
+      MBBI = std::next(MBBI);
+
+    // TODO: is it necessary?
+    while (MBBI != MBB.begin() &&
+           std::prev(MBBI)->getFlag(MachineInstr::FrameDestroy))
+      --MBBI;
+  }
+
+  const auto &CSI = MFI.getCalleeSavedInfo();
+
+  // Skip to before the restores of callee-saved registers
+  // FIXME: assumes exactly one instruction is used to restore each
+  // callee-saved register.
+  auto LastFrameDestroy = MBBI;
+  if (!CSI.empty())
+    LastFrameDestroy = std::prev(MBBI, CSI.size());
+
+  uint64_t StackSize = MFI.getStackSize();
+
+  // Deallocate stack
+  adjustReg(MBB, MBBI, DL, SPReg, SPReg, StackSize, MachineInstr::FrameDestroy);
 }
 
-bool
-SIMFrameLowering::hasReservedCallFrame(const MachineFunction &MF) const {
+bool SIMFrameLowering::spillCalleeSavedRegisters(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
+    ArrayRef<CalleeSavedInfo> CSI, const TargetRegisterInfo *TRI) const {
+  if (CSI.empty())
+    return true;
+
+  MachineFunction *MF = MBB.getParent();
+  const TargetInstrInfo &TII = *MF->getSubtarget().getInstrInfo();
+
+  for (auto &CS : CSI) {
+    // Insert the spill to the stack frame.
+    Register Reg = CS.getReg();
+    const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
+    TII.storeRegToStackSlot(MBB, MI, Reg, !MBB.isLiveIn(Reg), CS.getFrameIdx(),
+                            RC, TRI);
+  }
+
   return true;
 }
 
-// This method is called immediately before PrologEpilogInserter scans the
-// physical registers used to determine what callee saved registers should be
-// spilled. This method is optional.
-void SIMFrameLowering::determineCalleeSaves(MachineFunction &MF,
-                                              BitVector &SavedRegs,
-                                              RegScavenger *RS) const {
-  TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
+bool SIMFrameLowering::restoreCalleeSavedRegisters(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
+    MutableArrayRef<CalleeSavedInfo> CSI, const TargetRegisterInfo *TRI) const {
+  if (CSI.empty())
+    return true;
+
+  MachineFunction *MF = MBB.getParent();
+  const TargetInstrInfo &TII = *MF->getSubtarget().getInstrInfo();
+
+  // Insert in reverse order.
+  // loadRegFromStackSlot can insert multiple instructions.
+  for (auto &CS : reverse(CSI)) {
+    Register Reg = CS.getReg();
+    const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
+    TII.loadRegFromStackSlot(MBB, MI, Reg, CS.getFrameIdx(), RC, TRI);
+    assert(MI != MBB.begin() && "loadRegFromStackSlot didn't insert any code!");
+  }
+
+  return true;
+}
+
+void SIMFrameLowering::processFunctionBeforeFrameFinalized(
+    MachineFunction &MF, RegScavenger *RS) const {
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  auto *UFI = MF.getInfo<SIMFunctionInfo>();
+
+  if (!isInt<16>(MFI.estimateStackSize(MF))) {
+    llvm_unreachable("");
+  }
+
+  if (MFI.getCalleeSavedInfo().empty()) {
+    UFI->setCalleeSavedStackSize(0);
+    return;
+  }
+
+  unsigned Size = 0;
+  for (const auto &Info : MFI.getCalleeSavedInfo()) {
+    int FrameIdx = Info.getFrameIdx();
+    if (MFI.getStackID(FrameIdx) != TargetStackID::Default)
+      continue;
+
+    Size += MFI.getObjectSize(FrameIdx);
+  }
+  UFI->setCalleeSavedStackSize(Size);
+}
+
+MachineBasicBlock::iterator SIMFrameLowering::eliminateCallFramePseudoInstr(
+    MachineFunction &MF, MachineBasicBlock &MBB,
+    MachineBasicBlock::iterator MI) const {
+  Register SPReg = SIM::SP;
+  DebugLoc DL = MI->getDebugLoc();
+
+  if (!hasReservedCallFrame(MF)) {
+    // If space has not been reserved for a call frame, ADJCALLSTACKDOWN and
+    // ADJCALLSTACKUP must be converted to instructions manipulating the stack
+    // pointer. This is necessary when there is a variable length stack
+    // allocation (e.g. alloca), which means it's not possible to allocate
+    // space for outgoing arguments from within the function prologue.
+    int64_t Amount = MI->getOperand(0).getImm();
+
+    if (Amount != 0) {
+      // Ensure the stack remains aligned after adjustment.
+      Amount = alignSPAdjust(Amount);
+
+      if (MI->getOpcode() == SIM::ADJCALLSTACKDOWN)
+        Amount = -Amount;
+
+      adjustReg(MBB, MI, DL, SPReg, SPReg, Amount, MachineInstr::NoFlags);
+    }
+  }
+
+  return MBB.erase(MI);
+}
+
+bool SIMFrameLowering::hasFP(const MachineFunction &MF) const {
+  const TargetRegisterInfo *RegInfo = MF.getSubtarget().getRegisterInfo();
+
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  return MF.getTarget().Options.DisableFramePointerElim(MF) || // -fomit-frame-pointer
+         RegInfo->needsStackRealignment(MF) || MFI.hasVarSizedObjects() ||
+         MFI.isFrameAddressTaken();
+}
+
+bool SIMFrameLowering::hasBP(const MachineFunction &MF) const {
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  const TargetRegisterInfo *TRI = STI.getRegisterInfo();
+
+  return MFI.hasVarSizedObjects() && TRI->needsStackRealignment(MF);
+}
+
+// TODO: rewrite!
+StackOffset
+SIMFrameLowering::getFrameIndexReference(const MachineFunction &MF, int FI,
+                                         Register &FrameReg) const {
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  const TargetRegisterInfo *RI = MF.getSubtarget().getRegisterInfo();
+  const auto *UFI = MF.getInfo<SIMFunctionInfo>();
+
+  // Callee-saved registers should be referenced relative to the stack
+  // pointer (positive offset), otherwise use the frame pointer (negative
+  // offset).
+  const auto &CSI = MFI.getCalleeSavedInfo();
+  int MinCSFI = 0;
+  int MaxCSFI = -1;
+  int Offset;
+
+  Offset = MFI.getObjectOffset(FI) - getOffsetOfLocalArea() +
+           MFI.getOffsetAdjustment();
+
+  if (CSI.size()) {
+    MinCSFI = CSI[0].getFrameIdx();
+    MaxCSFI = CSI[CSI.size() - 1].getFrameIdx();
+  }
+
+  if (FI >= MinCSFI && FI <= MaxCSFI) {
+    FrameReg = SIM::SP;
+    Offset += MFI.getStackSize();
+  } else if (RI->needsStackRealignment(MF) && !MFI.isFixedObjectIndex(FI)) {
+    // TODO: realigned stack
+    llvm_unreachable("");
+  } else {
+    // TODO: what's going on here
+    FrameReg = RI->getFrameRegister(MF);
+    if (hasFP(MF)) {
+      Offset += UFI->getVarArgsSaveSize();
+    } else {
+      Offset += MFI.getStackSize();
+    }
+  }
+
+  return StackOffset::getFixed(Offset);
+}
+
+// Not preserve stack space within prologue for outgoing variables when the
+// function contains variable size objects or there are vector objects accessed
+// by the frame pointer.
+// Let eliminateCallFramePseudoInstr preserve stack space for it.
+bool SIMFrameLowering::hasReservedCallFrame(const MachineFunction &MF) const {
+  return !MF.getFrameInfo().hasVarSizedObjects();
 }

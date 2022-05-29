@@ -15,18 +15,18 @@ tablegen(LLVM SIMGenMCPseudoLowering.inc -gen-pseudo-lowering)
 # SIMCommonTableGen must be defined
 add_public_tablegen_target(SIMCommonTableGen)
 
-# SIMCodeGen should match with LLVMBuild.txt SIMCodeGen
 add_llvm_target(SIMCodeGen
   SIMAsmPrinter.cpp
   SIMFrameLowering.cpp
   SIMInstrInfo.cpp
+  SIMISelDAGToDAG.cpp
   SIMISelLowering.cpp
+  SIMMachineFunction.cpp
+  SIMMCInstLower.cpp
   SIMRegisterInfo.cpp
   SIMSubtarget.cpp
-  SIMTargetObjectFile.cpp
-  SIMISelDAGToDAG.cpp
   SIMTargetMachine.cpp
-  SIMMCInstLower.cpp
+  SIMTargetObjectFile.cpp
 
   LINK_COMPONENTS
   Analysis
@@ -45,6 +45,5 @@ add_llvm_target(SIMCodeGen
   SIM
 )
 
-# Should match with "subdirectories =  MCTargetDesc TargetInfo" in LLVMBuild.txt
 add_subdirectory(TargetInfo)
 add_subdirectory(MCTargetDesc)
