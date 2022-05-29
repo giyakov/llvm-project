@@ -15,6 +15,7 @@
 #define LLVM_LIB_TARGET_SIM_SIMREGISTERINFO_H
 
 #include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "MCTargetDesc/SIMMCAsmInfo.h"
 
 #define GET_REGINFO_HEADER
 #include "SIMGenRegisterInfo.inc"

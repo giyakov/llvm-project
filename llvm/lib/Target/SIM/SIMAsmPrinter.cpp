@@ -14,6 +14,7 @@
 
 #include "SIMInstrInfo.h"
 #include "SIMTargetMachine.h"
+#include "MCTargetDesc/SIMMCAsmInfo.h"
 #include "MCTargetDesc/SIMInstPrinter.h"
 #include "TargetInfo/SIMTargetInfo.h"
 #include "llvm/CodeGen/AsmPrinter.h"

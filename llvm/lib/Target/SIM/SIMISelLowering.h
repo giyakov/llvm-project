@@ -42,58 +42,52 @@ public:
   const char *getTargetNodeName(unsigned Opcode) const override;
 
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
-  void ReplaceNodeResults(SDNode *N,
-                          SmallVectorImpl<SDValue> &Results,
-                          SelectionDAG &DAG) const override;
+  void ReplaceNodeResults(SDNode *N, SmallVectorImpl<SDValue> &Results,
+                          SelectionDAG &DAG) const override {
+    llvm_unreachable("");
+  }
 
-  const SIMSubtarget& getSubtarget() const { return Subtarget; }
+  bool isLegalAddressingMode(const DataLayout &DL, const AddrMode &AM, Type *Ty,
+                             unsigned AS,
+                             Instruction *I = nullptr) const override;
 
-protected:
-  // Subtarget Info
-  const SIMSubtarget &Subtarget;
+  SIMSubtarget const &getSubtarget() const { return STI; }
 
 private:
-  SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
-  SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
-  SDValue LowerConstantPool(SDValue Op, SelectionDAG &DAG) const;
-  SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
+  const SIMSubtarget &STI;
 
-  using RegsToPassVector = SmallVector<std::pair<unsigned, SDValue>, 8>;
-
-  SDValue getGlobalAddressWrapper(SDValue GA,
-                                  const GlobalValue *GV,
-                                  SelectionDAG &DAG) const;
-
-  SDValue LowerFormalArguments(SDValue Chain,
-                         CallingConv::ID CallConv, bool IsVarArg,
-                         const SmallVectorImpl<ISD::InputArg> &Ins,
-                         const SDLoc &dl, SelectionDAG &DAG,
-                         SmallVectorImpl<SDValue> &InVals) const override;
-
-  SDValue LowerReturn(SDValue Chain,
-                      CallingConv::ID CallConv, bool IsVarArg,
-                      const SmallVectorImpl<ISD::OutputArg> &Outs,
-                      const SmallVectorImpl<SDValue> &OutVals,
-                      const SDLoc &dl, SelectionDAG &DAG) const override;
-  bool CanLowerReturn(CallingConv::ID CallConv,
-                      MachineFunction &MF, bool isVarArg,
-                      const SmallVectorImpl<ISD::OutputArg> &Outs,
-                      LLVMContext &Context) const override;
+  SDValue LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
+                               bool IsVarArg,
+                               const SmallVectorImpl<ISD::InputArg> &Ins,
+                               const SDLoc &DL, SelectionDAG &DAG,
+                               SmallVectorImpl<SDValue> &InVals) const override;
 
   SDValue LowerCall(TargetLowering::CallLoweringInfo &CLI,
                     SmallVectorImpl<SDValue> &InVals) const override;
-  void HandleByVal(CCState *, unsigned &, Align) const override;
-  SDValue LowerCallResult(SDValue Chain, SDValue InFlag,
-                          CallingConv::ID CallConv, bool IsVarArg,
-                          const SmallVectorImpl<ISD::InputArg> &Ins,
-                          const SDLoc &dl, SelectionDAG &DAG,
-                          SmallVectorImpl<SDValue> &InVals,
-                          bool isThisReturn, SDValue ThisVal) const;
-  SDValue LowerMemOpCallTo(SDValue Chain,
-                           SDValue Arg, const SDLoc &dl,
-                           SelectionDAG &DAG, const CCValAssign &VA,
-                           ISD::ArgFlagsTy Flags) const;
+
+  SDValue LowerReturn(SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
+                      const SmallVectorImpl<ISD::OutputArg> &Outs,
+                      const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
+                      SelectionDAG &DAG) const override;
+
+  bool CanLowerReturn(CallingConv::ID CallConv, MachineFunction &MF,
+                      bool IsVarArg,
+                      const SmallVectorImpl<ISD::OutputArg> &ArgsFlags,
+                      LLVMContext &Context) const override;
+
+  bool mayBeEmittedAsTailCall(const CallInst *CI) const override {
+    return false;
+  }
+
+  MachineBasicBlock *
+  EmitInstrWithCustomInserter(MachineInstr &MI,
+                              MachineBasicBlock *BB) const override;
+
+  SDValue lowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
 };
+
 }
 
 #endif // end LLVM_LIB_TARGET_SIM_SIMISELLOWERING_H
