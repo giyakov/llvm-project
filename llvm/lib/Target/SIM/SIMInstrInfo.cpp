@@ -31,7 +31,7 @@ using namespace llvm;
 void SIMInstrInfo::anchor() {}
 
 SIMInstrInfo::SIMInstrInfo(const SIMSubtarget &STI)
-    : SIMGenInstrInfo(SIM::ADJCALLSTACKDOWN, SIM::ADJCALLSTACKUP), STI(STI) {
+    : SIMGenInstrInfo(SIM::ADJCALLSTACKDOWN, SIM::ADJCALLSTACKUP) {
 }
 
 unsigned SIMInstrInfo::isLoadFromStackSlot(const MachineInstr &MI,

@@ -411,7 +411,7 @@ SDValue SIMTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   if (GlobalAddressSDNode *S = dyn_cast<GlobalAddressSDNode>(Callee)) {
     const GlobalValue *GV = S->getGlobal();
-    assert(getTargetMachine().shouldAssumeDSOLocal(*GV->getParent(), GV));
+//    assert(getTargetMachine().shouldAssumeDSOLocal(*GV->getParent(), GV));
     Callee = DAG.getTargetGlobalAddress(GV, DL, PtrVT, 0, 0);
   }
 

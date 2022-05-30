@@ -181,37 +181,37 @@ class PatBcc<CondCode Cond, SIMInst Inst>
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0, isBranch = 1, isTerminator = 1 in
 class BranchCC<bits<8> op, string opcodestr>
     : SIMInst<op, (outs), (ins GPR:$rs1, GPR:$rs2, btarget16:$imm16),
-              !strconcat(opcodestr, "\t$rs1, $rs2, $imm16"), []>;
+              !strconcat(opcodestr, "\t$rs1 $rs2 $imm16"), []>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class ArithmRR<bits<8> op, string opcodestr>
     : SIMInst<op, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-              !strconcat(opcodestr, "\t$rd, $rs1, $rs2"), []>;
+              !strconcat(opcodestr, "\t$rd $rs1 $rs2"), []>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class ArithmRI<bits<8> op, string opcodestr>
     : SIMInst<op, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm),
-              !strconcat(opcodestr, "\t$rd, $rs1, $imm"), []>;
+              !strconcat(opcodestr, "\t$rd $rs1 $imm"), []>;
 
 //===----------------------------------------------------------------------===//
 // SIM Instructions
 //===----------------------------------------------------------------------===//
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0, isBarrier = 1, isBranch = 1, isTerminator = 1 in
-def B : SIMInst<0x0, (outs), (ins btarget16:$imm16), "b\t$imm16",
+def B : SIMInst<0x0, (outs), (ins btarget16:$imm16), "B\t$imm16",
                 [(br bb:$imm16)]>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0, isCall = 1, isBranch = 1, isTerminator = 1 in
-def BR : SIMInst<0x0, (outs), (ins GPR:$rs1), "br\t$rs1",
+def BR : SIMInst<0x0, (outs), (ins GPR:$rs1), "BR\t$rs1",
                  [(brind GPR:$rs1)]>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0, isCall = 1, isBranch = 1, isTerminator = 1 in
-def BL : SIMInst<0x0, (outs GPR:$rd), (ins ctarget16:$imm16), "bl\t$rd, $imm16",
+def BL : SIMInst<0x0, (outs GPR:$rd), (ins ctarget16:$imm16), "BL\t$rd $imm16",
                  []>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0, isCall = 1, isBranch = 1, isTerminator = 1 in
 def BLR : SIMInst<0x0, (outs GPR:$rd), (ins GPR:$rs1),
-                  "blr\t$rd, $rs1", []>;
+                  "BLR\t$rd $rs1", []>;
 
 let isBarrier = 1, isReturn = 1, isTerminator = 1 in
 def PseudoRET : SIMPseudoInst<(outs), (ins), "# PseudoRET",
@@ -228,12 +228,12 @@ def PseudoCALLInd : SIMPseudoInst<(outs), (ins GPR:$rs1), "# PseudoCALLInd",
                     [(sim_call GPR:$rs1)]>,
                     PseudoInstExpansion<(BLR R1, GPR:$rs1)>;
 
-def BEQ : BranchCC<0x0, "beq">;
-def BNE : BranchCC<0x0, "bne">;
-def BLE : BranchCC<0x0, "ble">;
-def BGT : BranchCC<0x0, "bgt">;
-def BLEU : BranchCC<0x0, "bleu">;
-def BGTU : BranchCC<0x0, "bgtu">;
+def BEQ : BranchCC<0x0, "B.EQ">;
+def BNE : BranchCC<0x0, "B.NE">;
+def BLE : BranchCC<0x0, "BLE">;
+def BGT : BranchCC<0x0, "B.GT">;
+def BLEU : BranchCC<0x0, "B.LEU">;
+def BGTU : BranchCC<0x0, "B.GTU">;
 
 def : PatBcc<SETEQ, BEQ>;
 def : PatBcc<SETNE, BNE>;
@@ -261,27 +261,19 @@ def Select_CC_GPR
       "# PseudoSelect",
       [(set i32:$rd, (sim_selectcc_frag:$imm GPR:$lhs, GPR:$rhs, cond, GPR:$st, GPR:$sf))]>;
 
-// movli
-let isAsCheapAsAMove = 1, isCodeGenOnly = 1, isReMaterializable = 1 in
-def MOVLIu : SIMInst<0x0, (outs GPR:$rd), (ins i32li16u:$imm),
-                     "movliu\t$rd, $imm",
-                     [(set GPR:$rd, i32li16u:$imm)]>;
-
 let isAsCheapAsAMove = 1, isCodeGenOnly = 1, isReMaterializable = 1 in
 def MOVLIs : SIMInst<0x0, (outs GPR:$rd), (ins i32li16s:$imm),
-                     "movlis\t$rd, $imm",
+                     "MOVli\t$rd $imm",
                      [(set GPR:$rd, i32li16s:$imm)]>;
 
-// movhi
 let isAsCheapAsAMove = 1, isCodeGenOnly = 1, isReMaterializable = 1 in
 def MOVHI : SIMInst<0x0, (outs GPR:$rd), (ins i32hi16:$imm),
-                    "movhi\t$rd, $imm",
+                    "MOVhi\t$rd $imm",
                     [(set GPR:$rd, i32hi16:$imm)]>;
 
-// sti, but not SubtargetInfo!
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
 def STI_: SIMInst<0x0, (outs), (ins GPR:$rs2, GPR:$rs1, simm16:$imm),
-                  "sti\t$rs2, ${imm}(${rs1})", []>;
+                  "STi\t$rs2 ${rs1} ${imm}", []>;
 def : Pat<(store (i32 GPR:$rs2), BaseAddr:$rs1),
           (STI_ GPR:$rs2, BaseAddr:$rs1, 0)>;
 def : Pat<(store (i32 GPR:$rs2), (add BaseAddr:$rs1, simm16:$imm)),
@@ -289,10 +281,9 @@ def : Pat<(store (i32 GPR:$rs2), (add BaseAddr:$rs1, simm16:$imm)),
 def : Pat<(store (i32 GPR:$rs2), (IsOrAdd AddrFI:$rs1, simm16:$imm)),
           (STI_ GPR:$rs2, AddrFI:$rs1, simm16:$imm)>;
 
-// ldi
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
 def LDI: SIMInst<0x0, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm),
-                 "ldi\t$rd, ${imm}(${rs1})", []>;
+                 "LDi\t$rd ${rs1} ${imm}", []>;
 
 def : Pat<(i32 (load BaseAddr:$rs1)), (LDI BaseAddr:$rs1, 0)>;
 def : Pat<(i32 (load (add BaseAddr:$rs1, simm16:$imm))),
@@ -300,27 +291,26 @@ def : Pat<(i32 (load (add BaseAddr:$rs1, simm16:$imm))),
 def : Pat<(i32 (load (IsOrAdd AddrFI:$rs1, simm16:$imm))),
           (LDI AddrFI:$rs1, simm16:$imm)>;
 
-def ADD  : ArithmRR<0x0, "add">;  def : PatGprGpr<add,  ADD>;
-def SUB  : ArithmRR<0x0, "sub">;  def : PatGprGpr<sub,  SUB>;
-def MUL  : ArithmRR<0x0, "mul">;  def : PatGprGpr<mul,  MUL>;
-def DIVS : ArithmRR<0x0, "divs">; def : PatGprGpr<sdiv, DIVS>;
-def DIVU : ArithmRR<0x0, "divu">; def : PatGprGpr<udiv, DIVU>;
-def REM  : ArithmRR<0x0, "rems">; def : PatGprGpr<srem, REM>;
-def REMU : ArithmRR<0x0, "remu">; def : PatGprGpr<urem, REMU>;
-def OR   : ArithmRR<0x0, "or">;   def : PatGprGpr<or,   OR>;
-def AND  : ArithmRR<0x0, "and">;  def : PatGprGpr<and,  AND>;
-def XOR  : ArithmRR<0x0, "xor">;  def : PatGprGpr<xor,  XOR>;
+def ADD  : ArithmRR<0x0, "ADD">;     def : PatGprGpr<add,  ADD>;
+def SUB  : ArithmRR<0x0, "SUB">;     def : PatGprGpr<sub,  SUB>;
+def MUL  : ArithmRR<0x0, "MUL">;     def : PatGprGpr<mul,  MUL>;
+def DIVS : ArithmRR<0x0, "DIV">;     def : PatGprGpr<sdiv, DIVS>;
+def REM  : ArithmRR<0x0, "DIV_REM">; def : PatGprGpr<srem, REM>;
+def OR   : ArithmRR<0x0, "OR">;      def : PatGprGpr<or,   OR>;
+def AND  : ArithmRR<0x0, "AND">;     def : PatGprGpr<and,  AND>;
+def XOR  : ArithmRR<0x0, "XOR">;     def : PatGprGpr<xor,  XOR>;
 
-def ADDI  : ArithmRI<0x0, "addi">;  def : PatGprImm<add, ADDI, simm16>;
-def MULI  : ArithmRI<0x0, "muli">;  def : PatGprImm<mul, MULI, simm16>;
-def DIVIS : ArithmRI<0x0, "divis">; def : PatGprImm<sdiv, DIVIS, simm16>;
-def DIVIU : ArithmRI<0x0, "diviu">; def : PatGprImm<udiv, DIVIU, simm16>;
-def REMIS : ArithmRI<0x0, "remis">; def : PatGprImm<srem, REMIS, simm16>;
-def REMIU : ArithmRI<0x0, "remiu">; def : PatGprImm<urem, REMIU, simm16>;
-def ORI   : ArithmRI<0x0, "ori">;   def : PatGprImm<or, ORI, simm16>;
-def ANDI  : ArithmRI<0x0, "andi">;  def : PatGprImm<and, ANDI, simm16>;
-def XORI  : ArithmRI<0x0, "xori">;  def : PatGprImm<xor, XORI, simm16>;
+def ADDI  : ArithmRI<0x0, "ADDi">;     def : PatGprImm<add, ADDI, simm16>;
+def MULI  : ArithmRI<0x0, "MULi">;     def : PatGprImm<mul, MULI, simm16>;
+def DIVIS : ArithmRI<0x0, "DIVi">;     def : PatGprImm<sdiv, DIVIS, simm16>;
+def REMIS : ArithmRI<0x0, "DIV_REMi">; def : PatGprImm<srem, REMIS, simm16>;
+def ORI   : ArithmRI<0x0, "ORi">;      def : PatGprImm<or, ORI, simm16>;
+def ANDI  : ArithmRI<0x0, "ANDi">;     def : PatGprImm<and, ANDI, simm16>;
+def XORI  : ArithmRI<0x0, "XORi">;     def : PatGprImm<xor, XORI, simm16>;
 
-def SHL  : ArithmRR<0x0, "shl">;   def : PatGprGpr<shl, SHL>;
-def SHR  : ArithmRR<0x0, "shr">;   def : PatGprGpr<srl, SHR>;
-def SHRA : ArithmRR<0x0, "shra">;  def : PatGprGpr<sra, SHRA>;
+def SHL   : ArithmRR<0x0, "SHL">;   def : PatGprGpr<shl, SHL>;
+def SHR   : ArithmRR<0x0, "SHR">;   def : PatGprGpr<srl, SHR>;
+def SHRA  : ArithmRR<0x0, "SHRA">;  def : PatGprGpr<sra, SHRA>;
+def SHLI  : ArithmRR<0x0, "SHLi">;  def : PatGprImm<shl, SHLI, simm16>;
+def SHRI  : ArithmRR<0x0, "SHRi">;  def : PatGprImm<srl, SHRI, simm16>;
+def SHRAI : ArithmRR<0x0, "SHRAi">; def : PatGprImm<sra, SHRAI, simm16>;

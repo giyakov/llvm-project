@@ -83,10 +83,7 @@ void SIMDAGToDAGISel::Select(SDNode *Node) {
     assert(VT == MVT::i32);
     int64_t Imm = ConstNode->getSExtValue();
     SDNode *Res = nullptr;
-    if (isUInt<16>(Imm)) {
-      SDValue SDImm = CurDAG->getTargetConstant(Imm, DL, MVT::i32);
-      Res = CurDAG->getMachineNode(SIM::MOVLIu, DL, VT, SDImm);
-    } else if (isInt<16>(Imm)) {
+    if (isInt<16>(Imm)) {
       SDValue SDImm = CurDAG->getTargetConstant(Imm, DL, MVT::i32);
       Res = CurDAG->getMachineNode(SIM::MOVLIs, DL, VT, SDImm);
     } else {

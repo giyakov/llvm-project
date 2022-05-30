@@ -25,7 +25,6 @@
 namespace llvm {
 
 class SIMInstrInfo : public SIMGenInstrInfo {
-  const SIMSubtarget &STI;
   virtual void anchor();
 
 public:
