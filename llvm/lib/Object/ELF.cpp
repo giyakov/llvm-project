@@ -9,6 +9,7 @@
 #include "llvm/Object/ELF.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Support/LEB128.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 using namespace object;
@@ -159,6 +160,10 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
       break;
     }
     break;
+  case ELF::EM_SIM: {
+    llvm_unreachable(__func__);
+    break;
+  }
   default:
     break;
   }

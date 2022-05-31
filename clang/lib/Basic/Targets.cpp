@@ -37,9 +37,11 @@
 #include "Targets/WebAssembly.h"
 #include "Targets/X86.h"
 #include "Targets/XCore.h"
+#include "Targets/SIM.h"
 #include "clang/Basic/Diagnostic.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace clang;
 
@@ -110,6 +112,9 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
   switch (Triple.getArch()) {
   default:
     return nullptr;
+
+  case llvm::Triple::sim:
+    return new SIMTargetInfo(Triple, Opts);
 
   case llvm::Triple::arc:
     return new ARCTargetInfo(Triple, Opts);
